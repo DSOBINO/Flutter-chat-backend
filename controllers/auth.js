@@ -1,113 +1,112 @@
-
 const { response } = require('express');
-const Usuario = require('../models/usuario');
 const bcrypt = require('bcryptjs');
+
+const Usuario = require('../models/usuario');
 const { generarJWT } = require('../helpers/jwt');
-//const { validationResult } = require('express-validator');
+const usuario = require('../models/usuario');
 
-const crearUsuario = async (req, res = response) => {
 
+const crearUsuario = async (req, res = response ) => {
 
     const { email, password } = req.body;
 
     try {
 
-        const existeEmail =await  Usuario.findOne({ email: email });
-
-            if(existeEmail) {
-                return res.status(400).json({
-                    ok: false,
-                    msg: 'El correo ya está registrado'
-                });
-            }
-
-
-        const usuario = new Usuario( req.body );
-
-        const salt = bcrypt.genSaltSync();
-        usuario.password = bcrypt.hashSync(password, salt );
-
-        await usuario.save();
-
-        const token = await generarJWT( usuario.id);
-        
-        res.json({
-            ok:true,
-            usuario,
-            token
-        });
-        
-   
-    } catch (error) {
-        console.log(error);
-        res.status(500).json(
-            {
+        const existeEmail = await Usuario.findOne({ email });
+        if( existeEmail ) {
+            return res.status(400).json({
                 ok: false,
-                msg: 'Hable con el administrador'
-            }
-        );
-    }
-}
-
-const login = async (req, res = response) => {
-
-    const { email, password } = req.body;
-
-
-    try {
-
-        const usuarioDB = await Usuario.findOne({email});
-
-        if (!usuarioDB) {
-            return res.status(404).json({
-                ok  : false,
-                msg : 'Email no encontrado'
+                msg: 'El correo ya está registrado'
             });
         }
 
-        const validPassword = bcrypt.compareSync( password, usuarioDB.password );
+        const usuario = new Usuario( req.body );
 
-        if (!validPassword) {
-            return res.status(400).json({
-                ok  : false,
-                msg : 'La contraseña no es válida'
-            });
-        }   
+        // Encriptar contraseña
+        const salt = bcrypt.genSaltSync();
+        usuario.password = bcrypt.hashSync( password, salt );
 
-        const token = await generarJWT( usuarioDB.id);
-        
+        await usuario.save();
+
+        // Generar mi JWT
+        const token = await generarJWT( usuario.id );
+
         res.json({
-            ok:true,
-            usuario : usuarioDB,
+            ok: true,
+            usuario,
             token
         });
-        
 
 
-    }
-    catch (error) {
-
+    } catch (error) {
         console.log(error);
-        return res.status(500).json({
-            ok  : true,
-            msg : 'Hable con el administrador'
-        })        
+        res.status(500).json({
+            ok: false,
+            msg: 'Hable con el administrador'
+        });
     }
 }
+
+const login = async ( req, res = response ) => {
+
+    const { email, password } = req.body;
+
+    try {
+        
+        const usuarioDB = await Usuario.findOne({ email });
+        if ( !usuarioDB ) {
+            return res.status(404).json({
+                ok: false,
+                msg: 'Email no encontrado'
+            });
+        }
+
+        // Validar el password
+        const validPassword = bcrypt.compareSync( password, usuarioDB.password );
+        if ( !validPassword ) {
+            return res.status(400).json({
+                ok: false,
+                msg: 'La contraseña no es valida'
+            });
+        }
+
+
+        // Generar el JWT
+        const token = await generarJWT( usuarioDB.id );
+        
+        res.json({
+            ok: true,
+            usuario: usuarioDB,
+            token
+        });
+
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            ok: false,
+            msg: 'Hable con el administrador'
+        })
+    }
+
+}
+
 
 const renewToken = async( req, res = response) => {
 
     const uid = req.uid;
 
+    // generar un nuevo JWT, generarJWT... uid...
     const token = await generarJWT( uid );
 
+    // Obtener el usuario por el UID, Usuario.findById... 
     const usuario = await Usuario.findById( uid );
 
     res.json({
         ok: true,
         usuario,
         token
-    })
+    });
 
 }
 
@@ -115,5 +114,5 @@ const renewToken = async( req, res = response) => {
 module.exports = {
     crearUsuario,
     login,
-    renewToken 
+    renewToken
 }
